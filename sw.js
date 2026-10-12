@@ -1,6 +1,6 @@
-/* Rio-Roma: service worker. Salva l'app sul telefono e la serve anche senza rete.
+/* Trip Tools: service worker. Salva l'app sul telefono e la serve anche senza rete.
    Quando cambi un file, aumenta il numero di versione qui sotto. */
-const CACHE = "rio-roma-v2";
+const CACHE = "trip-tools-v3";
 const SHELL = [
   "./",
   "index.html",

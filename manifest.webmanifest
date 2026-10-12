@@ -1,6 +1,6 @@
 {
-  "name": "Rio-Roma: cambio e orari",
-  "short_name": "Rio-Roma",
+  "name": "Trip Tools",
+  "short_name": "Trip Tools",
   "description": "Convertitore reais/euro e orari di Rio de Janeiro e Roma, anche offline.",
   "lang": "it",
   "start_url": "./",
