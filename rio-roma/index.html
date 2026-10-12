@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rio-Roma</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Rio-Roma">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<meta name="format-detection" content="telephone=no">
+<style>
+  /* Layout: una colonna mobile, due schede (Cambio / Ora) con barra in basso.
+     Verde = real (BRL), indaco = euro (EUR): il colore dice sempre di che valuta si parla. */
+  :root {
+    --bg: #ffffff;
+    --surface: #f0f5f3;
+    --surface-2: #e4ece9;
+    --fg: #0e1a1b;
+    --muted: #586a6c;
+    --line: #d5dfdc;
+    --brl: #0a7d52;
+    --brl-soft: #d9f1e6;
+    --eur: #3a4ed6;
+    --eur-soft: #e1e5fb;
+    --ok: #0a7d52;
+    --warn: #a35a00;
+    --warn-soft: #fdeccd;
+    --radius: 20px;
+    --num: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --text: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #000000;
+      --surface: #111a1b;
+      --surface-2: #1b2627;
+      --fg: #edf4f2;
+      --muted: #8fa3a5;
+      --line: #223033;
+      --brl: #3fdc98;
+      --brl-soft: #0d2a1f;
+      --eur: #93a3ff;
+      --eur-soft: #161c3d;
+      --ok: #3fdc98;
+      --warn: #f2b45a;
+      --warn-soft: #2c2008;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #000000;
+    --surface: #111a1b;
+    --surface-2: #1b2627;
+    --fg: #edf4f2;
+    --muted: #8fa3a5;
+    --line: #223033;
+    --brl: #3fdc98;
+    --brl-soft: #0d2a1f;
+    --eur: #93a3ff;
+    --eur-soft: #161c3d;
+    --ok: #3fdc98;
+    --warn: #f2b45a;
+    --warn-soft: #2c2008;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.45 var(--text);
+    padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right));
+    padding-block: 12px calc(84px + env(safe-area-inset-bottom));
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+  main { max-width: 520px; margin: 0 auto; }
+  [hidden] { display: none !important; }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 2px 14px; }
+  h1 { margin: 0; font: 700 28px/1.1 var(--num); letter-spacing: -0.02em; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 600; padding: 6px 11px; border-radius: 999px;
+    background: var(--surface); color: var(--muted); white-space: nowrap;
+  }
+  .chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .chip.online { color: var(--ok); }
+  .chip.online::before { background: var(--ok); }
+  .chip.manual { color: var(--warn); background: var(--warn-soft); }
+  .chip.manual::before { background: var(--warn); }
+
+  /* Convertitore */
+  .pair { display: grid; gap: 10px; position: relative; }
+  .panel {
+    display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 14px;
+    padding: 16px 18px; border-radius: var(--radius); background: var(--surface);
+    border: 2px solid transparent; transition: border-color .15s, background .15s;
+  }
+  .panel.brl:focus-within { border-color: var(--brl); background: var(--brl-soft); }
+  .panel.eur:focus-within { border-color: var(--eur); background: var(--eur-soft); }
+  .who { display: grid; gap: 1px; min-width: 0; }
+  .code { font: 800 13px/1 var(--text); letter-spacing: .09em; }
+  .brl .code { color: var(--brl); }
+  .eur .code { color: var(--eur); }
+  .name { font-size: 13px; color: var(--muted); }
+  .field { display: flex; align-items: baseline; justify-content: flex-end; gap: 6px; min-width: 0; }
+  .sym { font: 600 22px/1 var(--num); color: var(--muted); }
+  .field input {
+    width: 100%; min-width: 0; text-align: right; background: transparent; border: 0; outline: 0; padding: 0;
+    font: 700 38px/1.15 var(--num); letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  }
+  .field input::placeholder { color: var(--muted); opacity: .5; }
+  .link {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    background: var(--bg); border: 2px solid var(--line); color: var(--muted);
+    font: 600 12px/1 var(--num); padding: 5px 10px; border-radius: 999px; white-space: nowrap;
+    font-variant-numeric: tabular-nums; pointer-events: none;
+  }
+
+  .quick { display: flex; align-items: center; gap: 8px; margin: 14px 0 4px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .quick::-webkit-scrollbar { display: none; }
+  .quick small { color: var(--muted); font-size: 13px; flex: none; margin-right: 2px; }
+  .quick button {
+    flex: none; min-width: 52px; padding: 9px 14px; border-radius: 999px; border: 0;
+    background: var(--surface); font: 600 15px/1 var(--num); font-variant-numeric: tabular-nums;
+  }
+  .quick button:active { background: var(--surface-2); }
+
+  .card { background: var(--surface); border-radius: var(--radius); padding: 16px 18px; margin-top: 12px; }
+  .card h2 { margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .rate-line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .rate-big { font: 700 24px/1.2 var(--num); font-variant-numeric: tabular-nums; }
+  .meta { font-size: 14px; color: var(--muted); margin: 4px 0 0; }
+  .actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .btn {
+    flex: 1 1 140px; padding: 12px 14px; border-radius: 14px; border: 0; font-weight: 600; font-size: 15px;
+    background: var(--surface-2);
+  }
+  .btn:active { filter: brightness(.94); }
+  .btn.primary { background: var(--fg); color: var(--bg); }
+  .btn[disabled] { opacity: .5; }
+  .manual-box { margin-top: 14px; display: grid; gap: 10px; }
+  .manual-row { display: flex; align-items: center; gap: 8px; font: 600 18px/1 var(--num); flex-wrap: wrap; }
+  .manual-row input {
+    width: 110px; padding: 10px 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg);
+    font: 700 20px/1 var(--num); text-align: right; font-variant-numeric: tabular-nums; outline: 0;
+  }
+  .manual-row input:focus { border-color: var(--warn); }
+  .note { font-size: 13px; color: var(--muted); margin: 14px 2px 0; }
+
+  /* Orari */
+  .clock { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; }
+  .clock + .clock { margin-top: 10px; }
+  .clock .city { font: 700 18px/1.2 var(--num); }
+  .clock .city small { display: block; font: 500 13px/1.3 var(--text); color: var(--muted); }
+  .clock .t { font: 700 44px/1 var(--num); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; text-align: right; }
+  .clock .t span { font-size: 22px; color: var(--muted); font-weight: 600; letter-spacing: 0; }
+  .clock .d { grid-column: 1 / -1; font-size: 14px; color: var(--muted); }
+  .clock .city::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
+  .clock.rio .city::before { background: var(--brl); }
+  .clock.rome .city::before { background: var(--eur); }
+  .diff { margin: 12px 2px 0; font-size: 15px; }
+  .diff b { font-variant-numeric: tabular-nums; }
+  .diff .next { display: block; margin-top: 4px; color: var(--warn); font-size: 14px; }
+
+  .seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--surface-2); border-radius: 14px; padding: 4px; gap: 4px; margin-top: 8px; }
+  .seg button { border: 0; background: transparent; padding: 10px 8px; border-radius: 11px; font-weight: 600; font-size: 15px; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--bg); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+  .when { display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; margin-top: 12px; }
+  .when label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  .when input {
+    width: 100%; min-width: 0; padding: 11px 12px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg);
+    font: 600 17px/1.2 var(--num); outline: 0; font-variant-numeric: tabular-nums;
+  }
+  .when input:focus { border-color: var(--fg); }
+  .result { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .result .q { margin: 0; font-size: 15px; color: var(--muted); }
+  .result .q b { color: var(--fg); }
+  .result .big { margin: 6px 0 0; font: 700 56px/1 var(--num); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .result.to-rio .big { color: var(--brl); }
+  .result.to-rome .big { color: var(--eur); }
+  .result .where { margin: 6px 0 0; font-size: 15px; }
+  .result .where span { color: var(--muted); }
+  .reset { margin-top: 12px; width: 100%; }
+
+  /* Barra schede */
+  .tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    padding: 8px max(16px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    -webkit-backdrop-filter: saturate(1.6) blur(14px); backdrop-filter: saturate(1.6) blur(14px);
+    border-top: 1px solid var(--line);
+  }
+  .tabs button {
+    border: 0; background: transparent; padding: 8px 6px 6px; border-radius: 14px;
+    display: grid; justify-items: center; gap: 3px; font-size: 12px; font-weight: 600; color: var(--muted);
+  }
+  .tabs button svg { width: 26px; height: 26px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tabs button[aria-selected="true"] { color: var(--fg); background: var(--surface); }
+  .tabs-inner { display: contents; }
+
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--eur); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 360px) {
+    .field input { font-size: 32px; }
+    .clock .t { font-size: 38px; }
+    .result .big { font-size: 48px; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- CAMBIO -->
+  <section id="view-cambio" aria-label="Cambio real euro">
+    <header class="top">
+      <h1>Cambio</h1>
+      <span id="net" class="chip" role="status">Offline</span>
+    </header>
+
+    <div class="pair">
+      <label class="panel brl" for="brl">
+        <span class="who"><span class="code">BRL</span><span class="name">Real</span></span>
+        <span class="field"><span class="sym">R$</span><input id="brl" type="text" inputmode="decimal" autocomplete="off" autocorrect="off" placeholder="0,00" aria-label="Importo in reais"></span>
+      </label>
+      <span class="link" id="link" aria-hidden="true">€ 1 = R$ 5,61</span>
+      <label class="panel eur" for="eur">
+        <span class="who"><span class="code">EUR</span><span class="name">Euro</span></span>
+        <span class="field"><span class="sym">€</span><input id="eur" type="text" inputmode="decimal" autocomplete="off" autocorrect="off" placeholder="0,00" aria-label="Importo in euro"></span>
+      </label>
+    </div>
+
+    <div class="quick" id="quick" aria-label="Importi rapidi"></div>
+
+    <div class="card">
+      <h2>Tasso</h2>
+      <div class="rate-line">
+        <span class="rate-big" id="rateBig">1 € = 5,6086 R$</span>
+      </div>
+      <p class="meta" id="rateMeta"></p>
+      <div class="actions">
+        <button class="btn primary" id="refresh" type="button">Aggiorna</button>
+        <button class="btn" id="manualToggle" type="button">Tasso manuale</button>
+      </div>
+      <div class="manual-box" id="manualBox" hidden>
+        <div class="manual-row">
+          <span>1 € =</span>
+          <input id="manualRate" type="text" inputmode="decimal" autocomplete="off" placeholder="5,60" aria-label="Tasso manuale reais per euro">
+          <span>R$</span>
+        </div>
+        <button class="btn" id="manualClear" type="button">Torna al tasso online</button>
+      </div>
+    </div>
+    <p class="note" id="srcNote">Il tasso online è di riferimento. Al cambio, con la carta o con Wise sarà diverso: usa il tasso manuale per allinearlo.</p>
+  </section>
+
+  <!-- ORA -->
+  <section id="view-ora" aria-label="Orari Rio e Roma" hidden>
+    <header class="top">
+      <h1>Rio e Roma</h1>
+    </header>
+
+    <div class="card clock rio">
+      <div class="city">Rio de Janeiro<small id="rioOff">UTC−3</small></div>
+      <div class="t" id="rioT">--:--<span>:--</span></div>
+      <div class="d" id="rioD"></div>
+    </div>
+    <div class="card clock rome">
+      <div class="city">Roma<small id="romeOff">UTC+2</small></div>
+      <div class="t" id="romeT">--:--<span>:--</span></div>
+      <div class="d" id="romeD"></div>
+    </div>
+    <p class="diff" id="diff"></p>
+
+    <div class="card" style="margin-top:16px">
+      <h2>Che ora sarà?</h2>
+      <div class="seg" role="group" aria-label="Città dell'orario inserito">
+        <button type="button" id="oRome" aria-pressed="true">Orario a Roma</button>
+        <button type="button" id="oRio" aria-pressed="false">Orario a Rio</button>
+      </div>
+      <div class="when">
+        <label for="pDate">Giorno<input id="pDate" type="date"></label>
+        <label for="pTime">Ora<input id="pTime" type="time"></label>
+      </div>
+      <div class="result to-rio" id="result" aria-live="polite"></div>
+      <button class="btn reset" id="now" type="button">Imposta adesso</button>
+    </div>
+  </section>
+
+</main>
+
+<nav class="tabs" aria-label="Sezioni">
+  <button type="button" id="tabCambio" aria-selected="true">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h14l-3.5-3.5M20 16H6l3.5 3.5"/></svg>
+    Cambio
+  </button>
+  <button type="button" id="tabOra" aria-selected="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+    Ora
+  </button>
+</nav>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- utilità ---------- */
+  var $ = function (s) { return document.querySelector(s); };
+  var store = {
+    get: function (k, d) { try { var v = localStorage.getItem("rr:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set: function (k, v) { try { localStorage.setItem("rr:" + k, JSON.stringify(v)); } catch (e) {} }
+  };
+
+  function parseNum(s) {
+    if (s == null) return NaN;
+    s = String(s).trim().replace(/[\s ']/g, "");
+    if (!s) return NaN;
+    var c = (s.match(/,/g) || []).length, d = (s.match(/\./g) || []).length;
+    var lc = s.lastIndexOf(","), ld = s.lastIndexOf(".");
+    if (c && d) {
+      if (lc > ld) s = s.replace(/\./g, "").replace(",", ".");
+      else s = s.replace(/,/g, "");
+    } else if (c > 1) {
+      s = s.replace(/,/g, "");
+    } else if (c === 1) {
+      s = s.replace(",", ".");
+    } else if (d > 1) {
+      s = s.replace(/\./g, "");
+    }
+    var n = parseFloat(s);
+    return isFinite(n) ? n : NaN;
+  }
+  var money = new Intl.NumberFormat("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  var rateFmt = new Intl.NumberFormat("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  function fmtMoney(n) { return money.format(n); }
+
+  /* ---------- CAMBIO ---------- */
+  var SEED = { rate: 5.6086, asOf: "2026-10-09", source: "BCE" }; // usato solo finché non c'è un tasso scaricato
+  var rateState = store.get("rate", null);   // { rate, asOf, source, fetchedAt }
+  var manual = store.get("manual", null);    // numero o null
+  var lastEdited = store.get("edited", "brl");
+  var fetching = false;
+
+  var brl = $("#brl"), eur = $("#eur");
+
+  function currentRate() {
+    if (manual > 0) return manual;
+    if (rateState && rateState.rate > 0) return rateState.rate;
+    return SEED.rate;
+  }
+
+  function convertFrom(which) {
+    var r = currentRate();
+    if (which === "brl") {
+      var v = parseNum(brl.value);
+      eur.value = isNaN(v) ? "" : fmtMoney(v / r);
+    } else {
+      var w = parseNum(eur.value);
+      brl.value = isNaN(w) ? "" : fmtMoney(w * r);
+    }
+  }
+
+  function shortDate(iso) {
+    var p = iso.split("-");
+    return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2], 12)).toLocaleDateString("it-IT", { day: "numeric", month: "short", timeZone: "UTC" });
+  }
+  function stamp(ms) {
+    var d = new Date(ms);
+    var today = new Date();
+    var same = d.toDateString() === today.toDateString();
+    var hm = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    return (same ? "oggi" : d.toLocaleDateString("it-IT", { day: "numeric", month: "short" })) + " alle " + hm;
+  }
+
+  function renderRate() {
+    var r = currentRate();
+    $("#rateBig").textContent = "1 € = " + rateFmt.format(r) + " R$";
+    $("#link").textContent = "€ 1 = R$ " + rateFmt.format(r);
+
+    var online = navigator.onLine;
+    var chip = $("#net");
+    chip.className = "chip";
+    if (manual > 0) { chip.textContent = "Manuale"; chip.classList.add("manual"); }
+    else if (fetching) { chip.textContent = "Aggiorno…"; chip.classList.add("online"); }
+    else if (online) { chip.textContent = "Online"; chip.classList.add("online"); }
+    else { chip.textContent = "Offline"; }
+
+    var meta;
+    if (manual > 0) {
+      meta = "Tasso impostato da te. Il tasso online resta salvato" + (rateState ? " (" + rateFmt.format(rateState.rate) + ")." : ".");
+    } else if (rateState) {
+      meta = "Dato del " + shortDate(rateState.asOf) + " · " + rateState.source + " · scaricato " + stamp(rateState.fetchedAt) + (online ? "" : " · offline, uso l'ultimo tasso");
+    } else {
+      meta = "Tasso di esempio del " + shortDate(SEED.asOf) + ", non ancora aggiornato." + (online ? "" : " Collegati a internet per scaricare quello attuale.");
+    }
+    $("#rateMeta").textContent = meta;
+    $("#refresh").disabled = fetching;
+    $("#refresh").textContent = fetching ? "Aggiorno…" : "Aggiorna";
+  }
+
+  function getJSON(url) {
+    var ctl = new AbortController();
+    var t = setTimeout(function () { ctl.abort(); }, 7000);
+    return fetch(url, { signal: ctl.signal, cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); })
+      .then(function (j) { clearTimeout(t); return j; }, function (e) { clearTimeout(t); throw e; });
+  }
+
+  function fetchRate() {
+    if (fetching) return Promise.resolve();
+    fetching = true; renderRate();
+    return getJSON("https://api.frankfurter.dev/v1/latest?base=EUR&symbols=BRL")
+      .then(function (j) {
+        var v = j && j.rates && j.rates.BRL;
+        if (!(v > 0)) throw new Error("bad data");
+        return { rate: v, asOf: j.date, source: "BCE" };
+      })
+      .catch(function () {
+        return getJSON("https://open.er-api.com/v6/latest/EUR").then(function (j) {
+          var v = j && j.rates && j.rates.BRL;
+          if (!(v > 0)) throw new Error("bad data");
+          var day = new Date((j.time_last_update_unix || Date.now() / 1000) * 1000).toISOString().slice(0, 10);
+          return { rate: v, asOf: day, source: "ExchangeRate-API" };
+        });
+      })
+      .then(function (res) {
+        res.fetchedAt = Date.now();
+        rateState = res; store.set("rate", res);
+      })
+      .catch(function () { /* resta l'ultimo tasso salvato */ })
+      .then(function () {
+        fetching = false; renderRate(); convertFrom(lastEdited);
+      });
+  }
+
+  function onType(which) { return function () { lastEdited = which; store.set("edited", which); convertFrom(which); renderQuick(); }; }
+  brl.addEventListener("input", onType("brl"));
+  eur.addEventListener("input", onType("eur"));
+  // Al tocco seleziona tutto il valore, così basta scrivere per sostituirlo (anche su iOS)
+  function selectOnFocus(el) {
+    var fresh = false;
+    el.addEventListener("focus", function () {
+      fresh = true;
+      el.select();
+      setTimeout(function () { el.select(); try { el.setSelectionRange(0, el.value.length); } catch (e) {} }, 0);
+    });
+    el.addEventListener("mouseup", function (e) { if (fresh) { e.preventDefault(); fresh = false; } });
+    el.addEventListener("touchend", function () { setTimeout(function () { fresh = false; }, 0); });
+  }
+  selectOnFocus(brl); selectOnFocus(eur);
+
+  [brl, eur].forEach(function (el, i) {
+    el.addEventListener("focus", function () { lastEdited = i === 0 ? "brl" : "eur"; renderQuick(); });
+    el.addEventListener("blur", function () {
+      var v = parseNum(el.value);
+      if (!isNaN(v)) el.value = fmtMoney(v);
+      store.set("amounts", { brl: brl.value, eur: eur.value });
+    });
+  });
+
+  var AMOUNTS = [10, 20, 50, 100, 200, 500, 1000];
+  function renderQuick() {
+    var q = $("#quick");
+    var sym = lastEdited === "eur" ? "€" : "R$";
+    q.innerHTML = "<small>Importo rapido in " + sym + "</small>";
+    AMOUNTS.forEach(function (a) {
+      var b = document.createElement("button");
+      b.type = "button"; b.textContent = String(a);
+      b.addEventListener("click", function () {
+        var el = lastEdited === "eur" ? eur : brl;
+        el.value = fmtMoney(a);
+        convertFrom(lastEdited);
+        store.set("amounts", { brl: brl.value, eur: eur.value });
+      });
+      q.appendChild(b);
+    });
+  }
+
+  $("#refresh").addEventListener("click", fetchRate);
+
+  var manualBox = $("#manualBox"), manualInput = $("#manualRate");
+  selectOnFocus(manualInput);
+  function setManualUI() {
+    manualBox.hidden = !(manual > 0 || manualOpen);
+    $("#manualToggle").textContent = manualBox.hidden ? "Tasso manuale" : "Chiudi";
+  }
+  var manualOpen = false;
+  $("#manualToggle").addEventListener("click", function () {
+    if (manual > 0) return; // con tasso attivo si chiude da "Torna al tasso online"
+    manualOpen = !manualOpen; setManualUI();
+    if (manualOpen) { manualInput.value = rateFmt.format(currentRate()); manualInput.focus(); manualInput.select(); }
+  });
+  manualInput.addEventListener("input", function () {
+    var v = parseNum(manualInput.value);
+    manual = v > 0 ? v : null;
+    store.set("manual", manual);
+    renderRate(); convertFrom(lastEdited); setManualUI();
+  });
+  $("#manualClear").addEventListener("click", function () {
+    manual = null; manualOpen = false; store.set("manual", null);
+    manualInput.value = "";
+    setManualUI(); renderRate(); convertFrom(lastEdited);
+  });
+
+  /* ---------- ORA ---------- */
+  var TZ = { rio: "America/Sao_Paulo", rome: "Europe/Rome" };
+  var dtfCache = {};
+  function dtf(tz) {
+    return dtfCache[tz] || (dtfCache[tz] = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit"
+    }));
+  }
+  function partsAt(tz, ms) {
+    var o = {};
+    dtf(tz).formatToParts(new Date(ms)).forEach(function (p) { if (p.type !== "literal") o[p.type] = +p.value; });
+    if (o.hour === 24) o.hour = 0;
+    return o;
+  }
+  function offsetMs(tz, ms) {
+    var p = partsAt(tz, ms);
+    var asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+    return asUtc - Math.floor(ms / 1000) * 1000;
+  }
+  // ora "a muro" in un fuso -> istante UTC (ms)
+  function zonedToUtc(y, mo, d, h, mi, tz) {
+    var guess = Date.UTC(y, mo - 1, d, h, mi);
+    var off = offsetMs(tz, guess);
+    var utc = guess - off;
+    var off2 = offsetMs(tz, utc);
+    if (off2 !== off) utc = guess - off2;
+    return utc;
+  }
+  function offLabel(tz, ms) {
+    var m = offsetMs(tz, ms) / 60000, sign = m < 0 ? "−" : "+";
+    m = Math.abs(m);
+    var h = Math.floor(m / 60), mm = m % 60;
+    return "UTC" + sign + h + (mm ? ":" + String(mm).padStart(2, "0") : "");
+  }
+  function pad(n) { return String(n).padStart(2, "0"); }
+  function dayLabel(ms, tz) {
+    return new Date(ms).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short", timeZone: tz });
+  }
+
+  function nextDiffChange(nowMs) {
+    var base = offsetMs(TZ.rome, nowMs) - offsetMs(TZ.rio, nowMs);
+    var t = new Date(nowMs); t = Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate(), 12);
+    for (var i = 1; i <= 240; i++) {
+      var ms = t + i * 86400000;
+      var diff = offsetMs(TZ.rome, ms) - offsetMs(TZ.rio, ms);
+      if (diff !== base) return { ms: ms, hours: diff / 3600000 };
+    }
+    return null;
+  }
+  function hoursWord(h) { return h === 1 ? "1 ora" : h + " ore"; }
+
+  var clockCache = "";
+  function tick() {
+    var now = Date.now();
+    ["rio", "rome"].forEach(function (k) {
+      var p = partsAt(TZ[k], now);
+      $("#" + k + "T").innerHTML = pad(p.hour) + ":" + pad(p.minute) + "<span>:" + pad(p.second) + "</span>";
+      $("#" + k + "D").textContent = new Date(now).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", timeZone: TZ[k] });
+      $("#" + k + "Off").textContent = offLabel(TZ[k], now);
+    });
+    var key = new Date(now).toISOString().slice(0, 13);
+    if (key !== clockCache) { clockCache = key; renderDiff(now); }
+  }
+  function renderDiff(now) {
+    var h = (offsetMs(TZ.rome, now) - offsetMs(TZ.rio, now)) / 3600000;
+    var el = $("#diff");
+    var base = h === 0 ? "Stessa ora." : "Roma è <b>" + hoursWord(Math.abs(h)) + "</b> " + (h > 0 ? "avanti" : "indietro") + " rispetto a Rio.";
+    var nx = nextDiffChange(now);
+    var extra = "";
+    if (nx) {
+      var when = new Date(nx.ms).toLocaleDateString("it-IT", { day: "numeric", month: "long", timeZone: TZ.rome });
+      extra = '<span class="next">Dal ' + when + " la differenza diventa di " + hoursWord(Math.abs(nx.hours)) + " (cambio ora legale).</span>";
+    }
+    el.innerHTML = base + extra;
+  }
+
+  // Convertitore orari
+  var origin = store.get("origin", "rome");
+  var pDate = $("#pDate"), pTime = $("#pTime");
+
+  function setNow() {
+    var p = partsAt(TZ[origin], Date.now());
+    pDate.value = p.year + "-" + pad(p.month) + "-" + pad(p.day);
+    pTime.value = pad(p.hour) + ":" + pad(p.minute);
+  }
+  function setOrigin(o) {
+    origin = o; store.set("origin", o);
+    $("#oRome").setAttribute("aria-pressed", o === "rome");
+    $("#oRio").setAttribute("aria-pressed", o === "rio");
+    renderResult();
+  }
+  function renderResult() {
+    var box = $("#result");
+    var d = pDate.value && pDate.value.split("-").map(Number);
+    var t = pTime.value && pTime.value.split(":").map(Number);
+    if (!d || d.length < 3 || !t || t.length < 2) { box.className = "result"; box.innerHTML = '<p class="q">Scegli giorno e ora.</p>'; return; }
+    var other = origin === "rome" ? "rio" : "rome";
+    var utc = zonedToUtc(d[0], d[1], d[2], t[0], t[1], TZ[origin]);
+    var p = partsAt(TZ[other], utc);
+    var dayDiff = Math.round((Date.UTC(p.year, p.month - 1, p.day) - Date.UTC(d[0], d[1] - 1, d[2])) / 86400000);
+    var rel = dayDiff === 0 ? "stesso giorno" : dayDiff > 0 ? "giorno dopo" : "giorno prima";
+    var names = { rome: "Roma", rio: "Rio de Janeiro" };
+    box.className = "result " + (other === "rio" ? "to-rio" : "to-rome");
+    box.innerHTML =
+      '<p class="q">Quando a <b>' + names[origin] + "</b> sono le <b>" + pad(t[0]) + ":" + pad(t[1]) + "</b> · " + dayLabel(utc, TZ[origin]) + "</p>" +
+      '<p class="big">' + pad(p.hour) + ":" + pad(p.minute) + "</p>" +
+      '<p class="where">a ' + names[other] + ' <span>· ' + rel + " · " + dayLabel(utc, TZ[other]) + " · " + offLabel(TZ[other], utc) + "</span></p>";
+  }
+  $("#oRome").addEventListener("click", function () { setOrigin("rome"); });
+  $("#oRio").addEventListener("click", function () { setOrigin("rio"); });
+  pDate.addEventListener("input", renderResult);
+  pTime.addEventListener("input", renderResult);
+  $("#now").addEventListener("click", function () { setNow(); renderResult(); });
+
+  /* ---------- schede ---------- */
+  var views = { cambio: $("#view-cambio"), ora: $("#view-ora") };
+  var tabs = { cambio: $("#tabCambio"), ora: $("#tabOra") };
+  var ticker = null;
+  function show(name) {
+    Object.keys(views).forEach(function (k) {
+      views[k].hidden = k !== name;
+      tabs[k].setAttribute("aria-selected", k === name);
+    });
+    store.set("tab", name);
+    clearInterval(ticker);
+    if (name === "ora") { clockCache = ""; tick(); ticker = setInterval(tick, 1000); }
+    window.scrollTo(0, 0);
+  }
+  tabs.cambio.addEventListener("click", function () { show("cambio"); });
+  tabs.ora.addEventListener("click", function () { show("ora"); });
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) return;
+    if (!views.ora.hidden) { clockCache = ""; tick(); }
+    maybeRefresh();
+  });
+
+  function maybeRefresh() {
+    if (!navigator.onLine || manual > 0) return;
+    if (!rateState || Date.now() - rateState.fetchedAt > 30 * 60 * 1000) fetchRate();
+  }
+  window.addEventListener("online", function () { renderRate(); maybeRefresh(); });
+  window.addEventListener("offline", renderRate);
+
+  /* ---------- avvio ---------- */
+  var saved = store.get("amounts", null);
+  if (saved && (saved.brl || saved.eur)) { brl.value = saved.brl || ""; eur.value = saved.eur || ""; convertFrom(lastEdited); }
+  else { brl.value = fmtMoney(100); convertFrom("brl"); }
+  if (manual > 0) manualInput.value = rateFmt.format(manual);
+  setManualUI();
+  renderQuick();
+  renderRate();
+  setNow(); setOrigin(origin);
+  show(store.get("tab", "cambio"));
+  maybeRefresh();
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
